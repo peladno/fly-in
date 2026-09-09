@@ -49,7 +49,8 @@ class Drone:
         return f"Drone(id={self.id}, zone='{self.current_zone.name}')"
 
     def __str__(self) -> str:
-        """Return formatted drone name matching simulation protocol (e.g. D1)."""
+        """Return formatted drone name
+        matching simulation protocol (e.g. D1)."""
         return f"D{self.id}"
 
     def __eq__(self, other: object) -> bool:
@@ -61,4 +62,3 @@ class Drone:
     def __hash__(self) -> int:
         """Return hash based on the drone's unique ID for set/dict storage."""
         return hash(self.id)
-
