@@ -31,7 +31,7 @@ class Zone:
 
     def __init__(
             self, name: str,
-            coor: tuple[float, float],
+            coord: tuple[float, float],
             zone_type: ZoneType = ZoneType.NORMAL,
             max_drones: int | None = 1
                 ):
@@ -44,7 +44,7 @@ class Zone:
             max_drones: Maximum drones allowed, or None for unlimited.
         """
         self.name = name
-        self.coor = coor
+        self.coord = coord
         self.zone_type = zone_type
         self.max_drones = max_drones
         self.drones: set[Drone] = set()
