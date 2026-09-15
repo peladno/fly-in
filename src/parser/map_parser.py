@@ -180,10 +180,13 @@ class MapParser:
         zone_type = ZoneType.NORMAL
         max_drones = 1
 
-        for token in meta_tokens:
-            if "=" not in token:
+        for raw_token in meta_tokens:
+            if "=" not in raw_token:
                 raise InvalidSyntaxError(f"Error: Line {line_num}: "
-                                         f"Invalid metadata token '{token}'")
+                                         f"Invalid metadata token "
+                                         "'{raw_token}'")
+
+            token = raw_token.strip("[]")
             key, value = token.split("=", 1)
 
             if key == "zone":
