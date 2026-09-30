@@ -1,4 +1,5 @@
-"""Module defining the turn-based simulation engine coordinating drone movement."""
+"""Module defining the turn-based simulation engine coordinating drone
+movement."""
 
 from __future__ import annotations
 
@@ -16,7 +17,8 @@ class SimulationEngine:
         paths: List of candidate traversal paths from start_hub to end_hub.
         reporter: Output formatter and emitter for turn events.
         drones: Fleet of drones instantiated in the simulation.
-        drone_targets: Mapping from each drone to its remaining target waypoints.
+        drone_targets: Mapping from each drone to its remaining target
+        waypoints.
         turns: Count of executed simulation turns.
     """
 
@@ -52,7 +54,8 @@ class SimulationEngine:
             drone = Drone(id=i, current_zone=self.graph.start_hub)
             self.drones.append(drone)
             self.graph.start_hub.add_drone(drone)
-            self.drone_targets[drone] = list(self.paths[0][1:])
+            assigned_path = self.paths[(i - 1) % len(self.paths)]
+            self.drone_targets[drone] = list(assigned_path[1:])
 
     def is_finished(self) -> bool:
         """Check if all drones have reached the destination end_hub.
@@ -104,7 +107,6 @@ class SimulationEngine:
             self.step()
             self.turns += 1
         return self.turns
-
 
 
 # if __name__ == "__main__":
