@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from src.model.drone import Drone
 from src.model.graph import Graph
-from src.model.zone import Zone
+from src.model.zone import Zone, ZoneType
 from src.simulation.reporter import SimulationReporter
 
 
@@ -74,24 +74,38 @@ class SimulationEngine:
         """
         movements: list[tuple[Drone, Zone]] = []
 
-        active_drones = [
+        in_transit = [d for d in self.drones if d.is_in_transit]
+        waiting_drones = [
             d for d in self.drones
-            if len(self.drone_targets[d]) > 0
+            if not d.is_in_transit and len(self.drone_targets[d]) > 0
         ]
 
-        active_drones.sort(key=lambda d: len(self.drone_targets[d]))
+        for drone in in_transit:
+            drone.steps_remaining -= 1
+            if drone.steps_remaining == 0:
+                dest_zone = drone.target_zone
+                if dest_zone is not None:
+                    dest_zone.add_drone(drone)
+                    drone.current_zone = dest_zone
+                    drone.target_zone = None
+                    self.drone_targets[drone].pop(0)
+                    movements.append((drone, dest_zone))
 
-        for drone in active_drones:
+        waiting_drones.sort(key=lambda d: len(self.drone_targets[d]))
+
+        for drone in waiting_drones:
             next_zone = self.drone_targets[drone][0]
 
-            if not next_zone.is_full():
-                drone.current_zone.remove_drone(drone)
-                next_zone.add_drone(drone)
-                drone.current_zone = next_zone
-
-                self.drone_targets[drone].pop(0)
-
-                movements.append((drone, next_zone))
+            if next_zone.zone_type != ZoneType.RESTRICTED:
+                if not next_zone.is_full():
+                    drone.current_zone.remove_drone(drone)
+                    next_zone.add_drone(drone)
+                    drone.current_zone = next_zone
+                    self.drone_targets[drone].pop(0)
+                    movements.append((drone, next_zone))
+            else:
+                # TODO: Implement restricted zone transit departure
+                pass
 
         self.reporter.report_turn(movements)
 
