@@ -85,3 +85,10 @@ class Graph:
             raise ValueError("Graph missing mandatory end_hub")
         if self.start_hub == self.end_hub:
             raise ValueError("start_hub and end_hub cannot be the same zone")
+
+    def get_connection(self, zone_a: Zone, zone_b: Zone) -> Connection | None:
+        """Retrieve the Connection linking zone_a and zone_b, if it exists."""
+        for conn in self.adjacency.get(zone_a, []):
+            if conn.connects(zone_b):
+                return conn
+        return None
