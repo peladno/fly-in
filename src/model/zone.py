@@ -23,31 +23,35 @@ class Zone:
 
     Attributes:
         name: Unique identifier string for the zone.
-        coor: 2D spatial coordinates (x, y).
+        coord: 2D spatial coordinates (x, y).
         zone_type: Operational classification (NORMAL, BLOCKED, etc.).
         max_drones: Maximum concurrent occupancy (None denotes infinite).
         drones: Set of drones currently occupying this zone.
+        color: Optional color string identifier for visual representation.
     """
 
     def __init__(
             self, name: str,
             coord: tuple[float, float],
             zone_type: ZoneType = ZoneType.NORMAL,
-            max_drones: int | None = 1
+            max_drones: int | None = 1,
+            color: str | None = None,
                 ):
         """Initialize a new Zone instance.
 
         Args:
             name: Unique name of the zone.
-            coor: Tuple with (x, y) coordinates.
+            coord: Tuple with (x, y) coordinates.
             zone_type: Type of the zone (default: NORMAL).
             max_drones: Maximum drones allowed, or None for unlimited.
+            color: Optional color string for visualization (default: None).
         """
         self.name = name
         self.coord = coord
         self.zone_type = zone_type
         self.max_drones = max_drones
         self.drones: set[Drone] = set()
+        self.color = color
 
     def is_full(self) -> bool:
         """Check if the zone has reached its maximum drone capacity.

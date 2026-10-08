@@ -70,72 +70,87 @@ class SimulationEngine:
     def step(self) -> list[tuple[Drone, Zone | str]]:
         """Execute a single discrete turn advancing active drones forward.
 
+        Coordinates simultaneous drone movements:
+        - Prioritizes drones closest to destination so departing drones
+          vacate zones and links for incoming drones in the same turn.
+        - Completes landings for in-transit drones arriving at destinations.
+        - Respects zone occupancy limits and per-turn max_link_capacity.
+        - Initiates 2-turn transit towards restricted zones by reserving
+          inbound slots and emitting connection traversals.
+
         Returns:
-            List of (drone, next_zone) tuples moved during this turn.
+            List of (drone, target) tuples where target is a Zone instance
+            or connection string descriptor moved during this turn.
         """
         movements: list[tuple[Drone, Zone | str]] = []
         link_usage: dict[Connection, int] = {}
 
-        in_transit = [d for d in self.drones if d.is_in_transit]
-        waiting_drones = [
+        active_drones = [
             d for d in self.drones
-            if not d.is_in_transit and len(self.drone_targets[d]) > 0
+            if len(self.drone_targets[d]) > 0
         ]
+        # Sort drones so that those closest to the goal move first.
+        # This allows departing drones to vacate zones and connections
+        # before following drones attempt to enter them in the same turn.
+        # Drones already in transit are completing their arrival this turn,
+        # so subtracting 0.5 gives them priority over drones still stationary.
+        active_drones.sort(
+            key=lambda d:
+            len(self.drone_targets[d]) - (0.5 if d.is_in_transit else 0)
+        )
 
-        # Fase 1: Completar la llegada de drones en vuelo
-        for drone in in_transit:
-            drone.steps_remaining -= 1
-            if drone.steps_remaining == 0:
-                dest_zone = drone.target_zone
-                if dest_zone is not None:
-                    dest_zone.add_drone(drone)
-                    drone.current_zone = dest_zone
-                    drone.target_zone = None
-                    self.drone_targets[drone].pop(0)
-                    movements.append((drone, dest_zone))
-
-        # Fase 2: Mover drones esperando según prioridad de distancia
-        waiting_drones.sort(key=lambda d: len(self.drone_targets[d]))
-
-        for drone in waiting_drones:
-            next_zone = self.drone_targets[drone][0]
-            conn = self.graph.get_connection(drone.current_zone, next_zone)
-            conn_limit = (
-                conn.max_link_capacity
-                if (conn and conn.max_link_capacity is not None)
-                else 1
-            )
-            link_available = (
-                (conn is None) or (link_usage.get(conn, 0) < conn_limit)
-            )
-
-            if next_zone.zone_type != ZoneType.RESTRICTED:
-                if not next_zone.is_full() and link_available:
-                    drone.current_zone.remove_drone(drone)
-                    next_zone.add_drone(drone)
-                    drone.current_zone = next_zone
-                    self.drone_targets[drone].pop(0)
-                    movements.append((drone, next_zone))
-                    if conn:
-                        link_usage[conn] = link_usage.get(conn, 0) + 1
+        for drone in active_drones:
+            if drone.is_in_transit:
+                # Phase 1: Complete flight for drones arriving at destination
+                drone.steps_remaining -= 1
+                if drone.steps_remaining == 0:
+                    dest_zone = drone.target_zone
+                    if dest_zone is not None:
+                        dest_zone.add_drone(drone)
+                        drone.current_zone = dest_zone
+                        drone.target_zone = None
+                        self.drone_targets[drone].pop(0)
+                        movements.append((drone, dest_zone))
             else:
-                inbound = sum(1 for d in self.drones
-                              if d.target_zone == next_zone)
-                limit = (next_zone.max_drones
-                         if next_zone.max_drones is not None else 1)
+                # Phase 2: Handle stationary drone departure
+                next_zone = self.drone_targets[drone][0]
+                conn = self.graph.get_connection(drone.current_zone, next_zone)
+                conn_limit = (
+                    conn.max_link_capacity
+                    if (conn and conn.max_link_capacity is not None)
+                    else 1
+                )
+                link_available = (
+                    (conn is None) or (link_usage.get(conn, 0) < conn_limit)
+                )
 
-                if (
-                    len(next_zone.drones) + inbound < limit
-                    and link_available
-                ):
-                    origin_name = drone.current_zone.name
-                    drone.current_zone.remove_drone(drone)
-                    drone.target_zone = next_zone
-                    drone.steps_remaining = 1
-                    movements.append(
-                        (drone, f"{origin_name}-{next_zone.name}"))
-                    if conn:
-                        link_usage[conn] = link_usage.get(conn, 0) + 1
+                if next_zone.zone_type != ZoneType.RESTRICTED:
+                    # Case A: Standard 1-turn traversal to normal/priority zone
+                    if not next_zone.is_full() and link_available:
+                        drone.current_zone.remove_drone(drone)
+                        next_zone.add_drone(drone)
+                        drone.current_zone = next_zone
+                        self.drone_targets[drone].pop(0)
+                        movements.append((drone, next_zone))
+                        if conn:
+                            link_usage[conn] = link_usage.get(conn, 0) + 1
+                else:
+                    # Case B: Multi-turn movement towards a restricted zone
+                    # Only allow departure if inbound transit pipeline has room
+                    inbound = sum(1 for d in self.drones
+                                  if d.target_zone == next_zone)
+                    limit = (next_zone.max_drones
+                             if next_zone.max_drones is not None else 1)
+
+                    if (inbound < limit) and link_available:
+                        origin_name = drone.current_zone.name
+                        drone.current_zone.remove_drone(drone)
+                        drone.target_zone = next_zone
+                        drone.steps_remaining = 1
+                        movements.append(
+                            (drone, f"{origin_name}-{next_zone.name}"))
+                        if conn:
+                            link_usage[conn] = link_usage.get(conn, 0) + 1
 
         self.reporter.report_turn(movements)
 

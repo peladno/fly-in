@@ -2,7 +2,7 @@ PYTHON = python3
 PIP = pip3
 VENV = .venv
 
-.PHONY: all install run debug clean lint test
+.PHONY: all install run debug visual clean lint test ultimate
 
 all: run
 
@@ -16,6 +16,12 @@ run:
 
 debug:
 	$(PYTHON) src/main.py --debug $(MAP)
+
+visual:
+	$(PYTHON) src/main.py --color $(MAP)
+
+ultimate:
+	$(PYTHON) src/main.py --color --debug $(MAP)
 
 lint:
 	flake8 src tests

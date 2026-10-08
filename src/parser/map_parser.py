@@ -152,19 +152,21 @@ class MapParser:
             raise InvalidSyntaxError(f"Error: {tokens[1]} and {tokens[2]} "
                                      "should be floats")
 
-        zone_type, max_drones = self._parse_metadata(tokens[3:], line_num)
+        zone_type, max_drones, color = self._parse_metadata(
+            tokens[3:], line_num)
         final_max = None if is_unlimited else max_drones
 
         return Zone(
             name=tokens[0],
             coord=(x, y),
             zone_type=zone_type,
-            max_drones=final_max
+            max_drones=final_max,
+            color=color
             )
 
     def _parse_metadata(
             self, meta_tokens: list[str], line_num: int
-            ) -> tuple[ZoneType, int]:
+            ) -> tuple[ZoneType, int, str | None]:
         """Extract and validate zone metadata attributes.
 
         Args:
@@ -172,13 +174,14 @@ class MapParser:
             line_num: Line number for error reporting.
 
         Returns:
-            A tuple of (ZoneType, max_drones).
+            A tuple of (ZoneType, max_drones, color).
 
         Raises:
             InvalidSyntaxError: If format or values are invalid.
         """
         zone_type = ZoneType.NORMAL
         max_drones = 1
+        color: str | None = None
 
         for raw_token in meta_tokens:
             if "=" not in raw_token:
@@ -207,11 +210,11 @@ class MapParser:
                                              f"'{value}' is not an integer")
 
             elif key == "color":
-                pass
+                color = value
             else:
                 raise InvalidSyntaxError(f"Error: Line {line_num}: Unknown "
                                          f"metadata key '{key}'")
-        return zone_type, max_drones
+        return (zone_type, max_drones, color)
 
     def _parse_connection(self,
                           content: str,
